@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistema Financeiro GOV.UP</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header>
+        <h1>Sistema Financeiro GOV.UP</h1>
+        <div id="auth-container">
+            <button id="login-btn">Login com Google</button>
+            <div id="user-info" class="hidden">
+                <span id="user-name"></span>
+            </div>
+        </div>
+    </header>
+
+    <main>
+        <div id="app-container" class="hidden">
+            <h2>Registrar Nova Despesa</h2>
+            <form id="expense-form">
+                <div class="form-group">
+                    <label for="description">Descrição da Despesa:</label>
+                    <input type="text" id="description" name="description" required>
+                </div>
+                <div class="form-group">
+                    <label for="amount">Valor (R$):</label>
+                    <input type="number" id="amount" name="amount" step="0.01" required>
+                </div>
+                <div class="form-group">
+                    <label for="receipt">Comprovante (PDF, Imagem):</label>
+                    <input type="file" id="receipt" name="receipt" accept="image/*,application/pdf" required>
+                </div>
+                <button type="submit" id="submit-btn">Enviar Despesa</button>
+            </form>
+            <div id="status-message"></div>
+        </div>
+
+        <div id="login-prompt">
+            <p>Por favor, faça login com sua conta Google para continuar.</p>
+        </div>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
