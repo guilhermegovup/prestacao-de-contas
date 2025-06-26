@@ -13,8 +13,8 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET; // Esta é a sua senha secreta para a sessão
 
-// Define o domínio base. Em produção (Vercel), usa o domínio do app.
-const applicationDomain = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${port}`;
+// Define o domínio base. Em produção (Vercel), usa o domínio do app ou APP_URL se estiver definido.
+const applicationDomain = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `http://localhost:${port}`);
 const REDIRECT_URI = `${applicationDomain}/auth/google/callback`;
 
 // Configuração do Cliente OAuth2
@@ -36,9 +36,9 @@ app.use(session({
     resave: false,
     saveUninitialized: true,
     cookie: {
-      secure: process.env.NODE_ENV === 'production', // Em produção (Vercel), os cookies devem ser seguros
-      httpOnly: true,
-      maxAge: 24 * 60 * 60 * 1000 // Expira em 24 horas
+        secure: process.env.NODE_ENV === 'production', // Em produção (Vercel), os cookies devem ser seguros
+        httpOnly: true,
+        maxAge: 24 * 60 * 60 * 1000 // Expira em 24 horas
     }
 }));
 
