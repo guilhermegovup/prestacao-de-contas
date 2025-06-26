@@ -2,7 +2,6 @@ const express = require('express');
 const { google } = require('googleapis');
 const multer = require('multer');
 const path = require('path');
-// 1. Importar o express-session
 const session = require('express-session');
 
 const app = express();
@@ -13,23 +12,12 @@ const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET; // Esta é a sua senha secreta para a sessão
 
-// Define o domínio base. Em produção (Vercel), usa o domínio do app ou APP_URL se estiver definido.
-const applicationDomain = process.env.APP_URL;
-const REDIRECT_URI = `${applicationDomain}/auth/google/callback`;
-
-// Configuração do Cliente OAuth2
-const oauth2Client = new google.auth.OAuth2(
-    GOOGLE_CLIENT_ID,
-    GOOGLE_CLIENT_SECRET,
-    REDIRECT_URI
-);
-
 const scopes = [
     'https://www.googleapis.com/auth/drive.file',
     'https://www.googleapis.com/auth/userinfo.profile'
 ];
 
-// 2. Configurar o middleware de sessão (Isto deve vir ANTES das suas rotas)
+// Configurar o middleware de sessão (Isto deve vir ANTES das suas rotas)
 // Garante que a aplicação irá gerir cookies e sessões de utilizador.
 app.use(session({
     secret: SESSION_SECRET || 'uma-senha-secreta-para-desenvolvimento-local', // Use a variável de ambiente em produção
@@ -42,31 +30,52 @@ app.use(session({
     }
 }));
 
-
 // Servir arquivos estáticos (CSS, JS) da pasta 'public'
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
-
 
 // --- Rotas da API ---
 
 // Rota de autenticação inicial
 app.get('/auth/google', (req, res) => {
+    // Define o domínio base dinamicamente com base no host da requisição
+    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+    const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
+
+    // Configura o cliente OAuth2 com a URI de redirecionamento dinâmica
+    const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        currentRedirectUri
+    );
+
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
         scope: scopes
     });
-    console.log('REDIRECT_URI:', REDIRECT_URI); // Log do REDIRECT_URI
+    console.log('REDIRECT_URI dinâmico:', currentRedirectUri); // Log do REDIRECT_URI dinâmico
     res.redirect(url);
 });
+
 // Rota de callback após autorização do Google
 app.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
+
+    // Define o domínio base dinamicamente com base no host da requisição
+    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+    const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
+
+    // Configura o cliente OAuth2 com a URI de redirecionamento dinâmica
+    const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        currentRedirectUri
+    );
+
     try {
         const { tokens } = await oauth2Client.getToken(code);
-        // 3. Armazenar os tokens na sessão do utilizador
-        // O `express-session` torna o `req.session` disponível
+        // Armazenar os tokens na sessão do utilizador
         req.session.tokens = tokens;
         res.redirect('/'); // Redireciona para a página principal após o login
     } catch (error) {
@@ -79,6 +88,16 @@ app.get('/auth/google/callback', async (req, res) => {
 app.get('/api/user', async (req, res) => {
     // Verifica se os tokens existem na sessão
     if (req.session && req.session.tokens) {
+        // Re-instanciar oauth2Client com a REDIRECT_URI correta antes de setar as credenciais
+        const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+        const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
+
+        const oauth2Client = new google.auth.OAuth2(
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET,
+            currentRedirectUri
+        );
+
         oauth2Client.setCredentials(req.session.tokens);
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
         try {
@@ -113,7 +132,6 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
     }
     // ... o resto da sua lógica de upload
 });
-
 
 // Rota para a página inicial (deve vir por último)
 app.get('/', (req, res) => {
