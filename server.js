@@ -35,8 +35,8 @@ app.use(session({
     secret: SESSION_SECRET || 'fallback_secret_for_local_dev', // Usa a variável de ambiente
     resave: false,
     saveUninitialized: true,
-    cookie: { 
-      secure: process.env.NODE_ENV === 'production' // Usa cookies seguros em produção
+    cookie: {
+        secure: process.env.NODE_ENV === 'production' // Usa cookies seguros em produção
     }
 }));
 
@@ -118,7 +118,7 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
             q: "mimeType='application/vnd.google-apps.folder' and name='Despesas da Empresa'",
             fields: 'files(id)',
         });
-        
+
         if (folderResponse.data.files.length > 0) {
             folderId = folderResponse.data.files[0].id;
         } else {
@@ -162,6 +162,8 @@ app.get('/', (req, res) => {
 });
 
 
-app.listen(port, () => {
-    console.log(`Servidor rodando na porta ${port}`);
-});
+// app.listen(port, () => {
+//     console.log(`Servidor rodando na porta ${port}`);
+// });
+
+module.exports = app;
