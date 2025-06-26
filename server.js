@@ -14,7 +14,7 @@ const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
 const SESSION_SECRET = process.env.SESSION_SECRET; // Esta é a sua senha secreta para a sessão
 
 // Define o domínio base. Em produção (Vercel), usa o domínio do app ou APP_URL se estiver definido.
-const applicationDomain = process.env.APP_URL || (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : `https://www.admgovup.online`);
+const applicationDomain = process.env.APP_URL;
 const REDIRECT_URI = `${applicationDomain}/auth/google/callback`;
 
 // Configuração do Cliente OAuth2
