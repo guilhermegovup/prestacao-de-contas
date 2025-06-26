@@ -5,6 +5,7 @@ const path = require('path');
 const session = require('express-session');
 
 const app = express();
+app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
 // Carregar variáveis de ambiente do painel da Vercel
