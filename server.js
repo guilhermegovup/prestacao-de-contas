@@ -55,12 +55,12 @@ app.get('/auth/google', (req, res) => {
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
-          scope: scopes
-      });
-      console.log('REDIRECT_URI:', REDIRECT_URI); // Log do REDIRECT_URI
-      res.redirect(url);
-  });
-  // Rota de callback após autorização do Google
+        scope: scopes
+    });
+    console.log('REDIRECT_URI:', REDIRECT_URI); // Log do REDIRECT_URI
+    res.redirect(url);
+});
+// Rota de callback após autorização do Google
 app.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
     try {
