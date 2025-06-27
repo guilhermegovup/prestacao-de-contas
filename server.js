@@ -12,10 +12,19 @@ app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
 
 // Carregar variáveis de ambiente do painel da Vercel
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
-const SESSION_SECRET = process.env.SESSION_SECRET; // Esta é a sua senha secreta para a sessão
+const {
+    GOOGLE_CLIENT_ID,
+    GOOGLE_CLIENT_SECRET,
+    GOOGLE_DRIVE_FOLDER_ID,
+    SESSION_SECRET
+} = process.env;
+
+// Validação das variáveis de ambiente. A aplicação não deve iniciar sem elas.
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !SESSION_SECRET) {
+    console.error('ERRO FATAL: As variáveis de ambiente GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e SESSION_SECRET são obrigatórias.');
+    console.error('Verifique seu arquivo .env (localmente) ou as configurações de Environment Variables (na Vercel).');
+    process.exit(1); // Encerra a aplicação se as variáveis essenciais não estiverem definidas.
+}
 
 const scopes = [
     'https://www.googleapis.com/auth/drive.file',
@@ -25,7 +34,7 @@ const scopes = [
 // Configurar o middleware de sessão (Isto deve vir ANTES das suas rotas)
 // Garante que a aplicação irá gerir cookies e sessões de utilizador.
 app.use(session({
-    secret: SESSION_SECRET || 'uma-senha-secreta-para-desenvolvimento-local', // Use a variável de ambiente em produção
+    secret: SESSION_SECRET, // A validação acima garante que esta variável existe.
     resave: false,
     saveUninitialized: false, // Alterado para false: boa prática para sessões de login.
     cookie: {
