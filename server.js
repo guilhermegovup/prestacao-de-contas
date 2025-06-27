@@ -140,55 +140,66 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
     if (!req.session.tokens) {
         return res.status(401).send('Não autorizado.');
     }
-
-    // --- Lógica para processar o envio da despesa ---
+    
     try {
         // 1. Acessar os dados do formulário
         const { description, amount } = req.body;
-        console.log('Dados recebidos do formulário:');
-        console.log('Descrição:', description);
-        console.log('Valor:', amount);
-
         // 2. Acessar o arquivo enviado (comprovante)
         const receiptFile = req.file; // req.file contém informações sobre o arquivo
         if (!receiptFile) {
             return res.status(400).json({ success: false, message: 'Nenhum comprovante foi enviado.' });
         }
-        console.log('Arquivo recebido:');
-        console.log('Nome do arquivo:', receiptFile.originalname);
-        console.log('Tipo do arquivo:', receiptFile.mimetype);
-        console.log('Tamanho do arquivo:', receiptFile.size, 'bytes');
-        // O conteúdo do arquivo está em receiptFile.buffer
 
-        // 3. Lógica de upload para o Google Drive (placeholder)
-        // A partir daqui, você precisaria usar a API do Google Drive para fazer o upload do receiptFile.buffer
-        // e talvez criar uma planilha ou adicionar uma linha a uma planilha existente com description e amount.
+        // Re-instanciar oauth2Client com a REDIRECT_URI correta antes de setar as credenciais
+        // Isso é importante para garantir que o cliente OAuth2 esteja configurado corretamente
+        // para o ambiente atual (local ou produção na Vercel).
+        const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+        const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
 
-        // Exemplo conceitual de como você usaria o oauth2Client e a API do Drive:
-        // const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
-        // const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
-        // const oauth2Client = new google.auth.OAuth2(
-        //     GOOGLE_CLIENT_ID,
-        //     GOOGLE_CLIENT_SECRET,
-        //     currentRedirectUri
-        // );
-        // oauth2Client.setCredentials(req.session.tokens);
-        // const drive = google.drive({ version: 'v3', auth: oauth2Client });
+        const oauth2Client = new google.auth.OAuth2(
+            GOOGLE_CLIENT_ID,
+            GOOGLE_CLIENT_SECRET,
+            currentRedirectUri
+        );
+        oauth2Client.setCredentials(req.session.tokens);
 
-        // const fileMetadata = {
-        //     name: `${description} - ${new Date().toISOString()}.${receiptFile.originalname.split('.').pop()}`, // Nome do arquivo no Drive
-        //     parents: ['ID_DA_SUA_PASTA_NO_DRIVE'], // Substitua pelo ID da pasta onde quer salvar
-        // };
-        // const media = {
-        //     mimeType: receiptFile.mimetype,
-        //     body: require('stream').Readable.from(receiptFile.buffer), // Converte o buffer em stream
-        // };
-        // const uploadedFile = await drive.files.create({ resource: fileMetadata, media: media, fields: 'id' });
-        // console.log('Arquivo enviado para o Drive. ID:', uploadedFile.data.id);
+        // Instanciar o serviço do Google Drive
+        const drive = google.drive({ version: 'v3', auth: oauth2Client });
 
-        // 4. Enviar resposta de sucesso para o cliente
-        res.json({ success: true, message: 'Despesa e comprovante recebidos com sucesso no servidor!' });
+        // Preparar metadados do arquivo para o Google Drive
+        const fileExtension = receiptFile.originalname.split('.').pop();
+        // Nome do arquivo mais descritivo no Google Drive
+        const fileName = `${description} - R$ ${parseFloat(amount).toFixed(2)} - ${new Date().toISOString().slice(0, 10)}.${fileExtension}`;
+        
+        const fileMetadata = {
+            name: fileName,
+            // IMPORTANTE: Substitua 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE' pelo ID da pasta onde você quer salvar os comprovantes.
+            // Para encontrar o ID da pasta, abra a pasta no Google Drive no navegador.
+            // O ID estará na URL, por exemplo: https://drive.google.com/drive/folders/1A2b3C4dE5fG6hI7jK8lM9nO0pQ1rS2tU
+            parents: ['YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE'], 
+        };
 
+        const media = {
+            mimeType: receiptFile.mimetype,
+            body: require('stream').Readable.from(receiptFile.buffer), // Converte o buffer do Multer em stream
+        };
+
+        // Realizar o upload do arquivo para o Google Drive
+        const uploadedFile = await drive.files.create({
+            resource: fileMetadata,
+            media: media,
+            fields: 'id,name,webViewLink', // Solicita o ID, nome e link de visualização do arquivo
+        });
+
+        console.log('Arquivo enviado para o Drive. ID:', uploadedFile.data.id);
+        console.log('Link de visualização:', uploadedFile.data.webViewLink);
+
+        res.json({
+            success: true,
+            message: 'Despesa e comprovante enviados com sucesso para o seu Google Drive!',
+            fileId: uploadedFile.data.id,
+            fileLink: uploadedFile.data.webViewLink // Envia o link de volta para o frontend
+        });
     } catch (error) {
         console.error('Erro ao processar o envio da despesa:', error);
         // Enviar resposta de erro para o cliente
