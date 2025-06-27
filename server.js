@@ -138,7 +138,10 @@ app.post('/api/logout', (req, res) => {
 const upload = multer({ storage: multer.memoryStorage() });
 app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
     if (!req.session.tokens) {
-        return res.status(401).send('Não autorizado.');
+        // Alterado para retornar JSON, que é o que o frontend espera.
+        // Isso corrige o erro "Unexpected token 'N', 'Não autorizado.' is not valid JSON".
+        // O erro ocorria porque o frontend sempre tenta analisar a resposta como JSON.
+        return res.status(401).json({ success: false, message: 'Não autorizado. Faça o login novamente.' });
     }
     
     try {
