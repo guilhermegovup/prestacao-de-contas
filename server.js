@@ -23,7 +23,7 @@ const scopes = [
 app.use(session({
     secret: SESSION_SECRET || 'uma-senha-secreta-para-desenvolvimento-local', // Use a variável de ambiente em produção
     resave: false,
-    saveUninitialized: true,
+    saveUninitialized: false, // Alterado para false: boa prática para sessões de login.
     cookie: {
         secure: process.env.NODE_ENV === 'production', // Em produção (Vercel), os cookies devem ser seguros
         httpOnly: true,
@@ -75,10 +75,19 @@ app.get('/auth/google/callback', async (req, res) => {
     );
 
     try {
-        const { tokens } = await oauth2Client.getToken(code);
-        // Armazenar os tokens na sessão do utilizador
+        const { tokens } = await oauth2Client.getToken(code); // Obtém os tokens
         req.session.tokens = tokens;
-        res.redirect('/'); // Redireciona para a página principal após o login
+
+        // Salva a sessão explicitamente antes de redirecionar.
+        // Isso corrige o problema de a página recarregar no estado de "não logado"
+        // por garantir que o token de sessão seja persistido antes da próxima requisição.
+        req.session.save((err) => {
+            if (err) {
+                console.error('Erro ao salvar a sessão:', err);
+                return res.status(500).send('Falha ao processar o login.');
+            }
+            res.redirect('/'); // Agora redireciona com segurança
+        });
     } catch (error) {
         console.error('Erro na rota de callback:', error.message);
         res.status(500).send('Falha na autenticação ao processar o callback.');
