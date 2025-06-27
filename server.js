@@ -4,6 +4,9 @@ const multer = require('multer');
 const path = require('path');
 const session = require('express-session');
 
+// Carrega as variáveis de ambiente do arquivo .env para process.env
+require('dotenv').config();
+
 const app = express();
 app.set('trust proxy', 1);
 const port = process.env.PORT || 3000;
@@ -11,6 +14,7 @@ const port = process.env.PORT || 3000;
 // Carregar variáveis de ambiente do painel da Vercel
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
 const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
+const GOOGLE_DRIVE_FOLDER_ID = process.env.GOOGLE_DRIVE_FOLDER_ID;
 const SESSION_SECRET = process.env.SESSION_SECRET; // Esta é a sua senha secreta para a sessão
 
 const scopes = [
@@ -174,12 +178,9 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
         // Nome do arquivo mais descritivo no Google Drive
         const fileName = `${description} - R$ ${parseFloat(amount).toFixed(2)} - ${new Date().toISOString().slice(0, 10)}.${fileExtension}`;
         
-        // IMPORTANTE: Substitua o valor abaixo pelo ID da sua pasta do Google Drive.
-        const GOOGLE_DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE';
-
         // Verificação para garantir que o ID da pasta foi alterado.
         // Isso evita erros da API do Google e fornece uma mensagem mais clara.
-        if (GOOGLE_DRIVE_FOLDER_ID === 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE') {
+        if (!GOOGLE_DRIVE_FOLDER_ID) {
             const errorMessage = 'Configuração do servidor incompleta: O ID da pasta do Google Drive precisa ser definido.';
             console.error(`ERRO: ${errorMessage}`);
             return res.status(500).json({ success: false, message: errorMessage });

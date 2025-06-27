@@ -1,14 +1,4 @@
-# File: prestacao-de-contas/.gitignore
-# Dependencies
-node_modules/
-
-# System files
-.DS_Store
-
-# Logs
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
+# Ignorar dependências do Node
+node_modules
+# Ignorar arquivo de variáveis de ambiente
 .env
