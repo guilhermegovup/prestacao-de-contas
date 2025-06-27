@@ -171,12 +171,20 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
         // Nome do arquivo mais descritivo no Google Drive
         const fileName = `${description} - R$ ${parseFloat(amount).toFixed(2)} - ${new Date().toISOString().slice(0, 10)}.${fileExtension}`;
         
+        // IMPORTANTE: Substitua o valor abaixo pelo ID da sua pasta do Google Drive.
+        const GOOGLE_DRIVE_FOLDER_ID = 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE';
+
+        // Verificação para garantir que o ID da pasta foi alterado.
+        // Isso evita erros da API do Google e fornece uma mensagem mais clara.
+        if (GOOGLE_DRIVE_FOLDER_ID === 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE') {
+            const errorMessage = 'Configuração do servidor incompleta: O ID da pasta do Google Drive precisa ser definido.';
+            console.error(`ERRO: ${errorMessage}`);
+            return res.status(500).json({ success: false, message: errorMessage });
+        }
+
         const fileMetadata = {
             name: fileName,
-            // IMPORTANTE: Substitua 'YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE' pelo ID da pasta onde você quer salvar os comprovantes.
-            // Para encontrar o ID da pasta, abra a pasta no Google Drive no navegador.
-            // O ID estará na URL, por exemplo: https://drive.google.com/drive/folders/1A2b3C4dE5fG6hI7jK8lM9nO0pQ1rS2tU
-            parents: ['YOUR_GOOGLE_DRIVE_FOLDER_ID_HERE'], 
+            parents: [GOOGLE_DRIVE_FOLDER_ID],
         };
 
         const media = {
