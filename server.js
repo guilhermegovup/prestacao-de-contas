@@ -31,6 +31,22 @@ const scopes = [
     'https://www.googleapis.com/auth/userinfo.profile'
 ];
 
+// --- Helper Function para criar e configurar o cliente OAuth2 ---
+// Centraliza a lógica para evitar repetição e garantir consistência.
+function createOAuth2Client(req) {
+    // Define o domínio base dinamicamente com base no host da requisição ou .env
+    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+    const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
+
+    const oauth2Client = new google.auth.OAuth2(
+        GOOGLE_CLIENT_ID,
+        GOOGLE_CLIENT_SECRET,
+        currentRedirectUri
+    );
+
+    return oauth2Client;
+}
+
 // Configurar o middleware de sessão (Isto deve vir ANTES das suas rotas)
 // Garante que a aplicação irá gerir cookies e sessões de utilizador.
 app.use(session({
@@ -52,40 +68,20 @@ app.use(express.json());
 
 // Rota de autenticação inicial
 app.get('/auth/google', (req, res) => {
-    // Define o domínio base dinamicamente com base no host da requisição
-    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
-    const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
-
-    // Configura o cliente OAuth2 com a URI de redirecionamento dinâmica
-    const oauth2Client = new google.auth.OAuth2(
-        GOOGLE_CLIENT_ID,
-        GOOGLE_CLIENT_SECRET,
-        currentRedirectUri
-    );
+    const oauth2Client = createOAuth2Client(req);
 
     const url = oauth2Client.generateAuthUrl({
         access_type: 'offline',
         prompt: 'consent',
         scope: scopes
     });
-    console.log('REDIRECT_URI dinâmico:', currentRedirectUri); // Log do REDIRECT_URI dinâmico
     res.redirect(url);
 });
 
 // Rota de callback após autorização do Google
 app.get('/auth/google/callback', async (req, res) => {
     const { code } = req.query;
-
-    // Define o domínio base dinamicamente com base no host da requisição
-    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
-    const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
-
-    // Configura o cliente OAuth2 com a URI de redirecionamento dinâmica
-    const oauth2Client = new google.auth.OAuth2(
-        GOOGLE_CLIENT_ID,
-        GOOGLE_CLIENT_SECRET,
-        currentRedirectUri
-    );
+    const oauth2Client = createOAuth2Client(req);
 
     try {
         const { tokens } = await oauth2Client.getToken(code); // Obtém os tokens
@@ -111,25 +107,31 @@ app.get('/auth/google/callback', async (req, res) => {
 app.get('/api/user', async (req, res) => {
     // Verifica se os tokens existem na sessão
     if (req.session && req.session.tokens) {
-        // Re-instanciar oauth2Client com a REDIRECT_URI correta antes de setar as credenciais
-        const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
-        const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
-
-        const oauth2Client = new google.auth.OAuth2(
-            GOOGLE_CLIENT_ID,
-            GOOGLE_CLIENT_SECRET,
-            currentRedirectUri
-        );
-
+        const oauth2Client = createOAuth2Client(req);
         oauth2Client.setCredentials(req.session.tokens);
+
+        // Adiciona um listener para o evento 'tokens'.
+        // Se o access_token for atualizado (usando o refresh_token),
+        // este evento é disparado e nós atualizamos a sessão.
+        oauth2Client.on('tokens', (tokens) => {
+            if (tokens.refresh_token) {
+                // Se um novo refresh_token for fornecido, armazene-o.
+                req.session.tokens.refresh_token = tokens.refresh_token;
+            }
+            req.session.tokens.access_token = tokens.access_token;
+            req.session.save(); // Salva a sessão atualizada
+        });
+
         const oauth2 = google.oauth2({ version: 'v2', auth: oauth2Client });
         try {
             const { data } = await oauth2.userinfo.get();
             res.json({ loggedIn: true, name: data.name });
         } catch (error) {
-            // Se o token expirou, limpa a sessão
-            req.session.destroy();
-            res.status(401).json({ loggedIn: false });
+            console.error('Erro ao buscar informações do usuário (token pode ter expirado):', error.message);
+            // Limpa a sessão se o token for inválido/expirado
+            req.session.destroy(() => {
+                res.status(401).json({ loggedIn: false, error: 'Session expired' });
+            });
         }
     } else {
         res.status(401).json({ loggedIn: false });
@@ -166,17 +168,7 @@ app.post('/api/submit-expense', upload.single('receipt'), async (req, res) => {
             return res.status(400).json({ success: false, message: 'Nenhum comprovante foi enviado.' });
         }
 
-        // Re-instanciar oauth2Client com a REDIRECT_URI correta antes de setar as credenciais
-        // Isso é importante para garantir que o cliente OAuth2 esteja configurado corretamente
-        // para o ambiente atual (local ou produção na Vercel).
-        const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
-        const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
-
-        const oauth2Client = new google.auth.OAuth2(
-            GOOGLE_CLIENT_ID,
-            GOOGLE_CLIENT_SECRET,
-            currentRedirectUri
-        );
+        const oauth2Client = createOAuth2Client(req);
         oauth2Client.setCredentials(req.session.tokens);
 
         // Instanciar o serviço do Google Drive
