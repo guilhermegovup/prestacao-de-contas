@@ -38,7 +38,10 @@ const scopes = [
 // Centraliza a lógica para evitar repetição e garantir consistência.
 function createOAuth2Client(req) {
     // Define o domínio base dinamicamente com base no host da requisição ou .env
-    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://${req.headers.host}` : `http://localhost:${port}`);
+    // Usar `req.hostname` é mais robusto que `req.headers.host` quando `trust proxy` está ativado,
+    // pois ele lida corretamente com o header `X-Forwarded-Host` da Vercel.
+    const host = req.hostname;
+    const currentApplicationDomain = process.env.APP_URL || (process.env.NODE_ENV === 'production' ? `https://` + host : `http://localhost:${port}`);
     const currentRedirectUri = `${currentApplicationDomain}/auth/google/callback`;
 
     const oauth2Client = new google.auth.OAuth2(
@@ -54,15 +57,25 @@ function createOAuth2Client(req) {
 let sessionStore;
 
 if (process.env.NODE_ENV === 'production') {
-    // Em produção, usa o Redis para persistir a sessão.
-    const redisClient = createClient({ url: REDIS_URL });
-    redisClient.on('error', (err) => console.error('Erro no Cliente Redis:', err));
-    redisClient.connect().catch(console.error);
+    try {
+        // Em produção, usa o Redis para persistir a sessão.
+        // É crucial que a REDIS_URL esteja no formato correto, ex: "redis://user:pass@host:port".
+        const redisClient = createClient({ url: REDIS_URL });
 
-    sessionStore = new RedisStore({
-        client: redisClient,
-        prefix: "prestacaodecontas:", // Prefixo opcional para as chaves no Redis
-    });
+        redisClient.on('error', (err) => console.error('Erro no Cliente Redis:', err));
+
+        // A conexão é assíncrona. O cliente Redis gerencia uma fila de comandos
+        // até que a conexão seja estabelecida.
+        redisClient.connect().catch(console.error);
+
+        sessionStore = new RedisStore({
+            client: redisClient,
+            prefix: "prestacaodecontas:", // Prefixo opcional para as chaves no Redis
+        });
+    } catch (err) {
+        console.error('ERRO FATAL: Falha ao inicializar o cliente Redis. Verifique a variável de ambiente REDIS_URL.', err);
+        process.exit(1);
+    }
 }
 // Em desenvolvimento, `sessionStore` será undefined, e `express-session` usará o MemoryStore padrão.
 
