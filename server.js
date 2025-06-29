@@ -2,6 +2,8 @@ const express = require('express');
 const { google } = require('googleapis');
 const multer = require('multer');
 const path = require('path');
+const { createClient } = require('redis');
+const RedisStore = require("connect-redis").default;
 const session = require('express-session');
 
 // Carrega as variáveis de ambiente do arquivo .env para process.env
@@ -16,12 +18,13 @@ const {
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
     GOOGLE_DRIVE_FOLDER_ID,
-    SESSION_SECRET
+    SESSION_SECRET,
+    REDIS_URL // Adicione esta linha no seu .env e nas variáveis da Vercel
 } = process.env;
 
 // Validação das variáveis de ambiente. A aplicação não deve iniciar sem elas.
-if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !SESSION_SECRET) {
-    console.error('ERRO FATAL: As variáveis de ambiente GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET e SESSION_SECRET são obrigatórias.');
+if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET || !SESSION_SECRET || (process.env.NODE_ENV === 'production' && !REDIS_URL)) {
+    console.error('ERRO FATAL: As variáveis de ambiente GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, SESSION_SECRET (e REDIS_URL em produção) são obrigatórias.');
     console.error('Verifique seu arquivo .env (localmente) ou as configurações de Environment Variables (na Vercel).');
     process.exit(1); // Encerra a aplicação se as variáveis essenciais não estiverem definidas.
 }
@@ -47,9 +50,26 @@ function createOAuth2Client(req) {
     return oauth2Client;
 }
 
+// --- Configuração do Armazenamento de Sessão ---
+let sessionStore;
+
+if (process.env.NODE_ENV === 'production') {
+    // Em produção, usa o Redis para persistir a sessão.
+    const redisClient = createClient({ url: REDIS_URL });
+    redisClient.on('error', (err) => console.error('Erro no Cliente Redis:', err));
+    redisClient.connect().catch(console.error);
+
+    sessionStore = new RedisStore({
+        client: redisClient,
+        prefix: "prestacaodecontas:", // Prefixo opcional para as chaves no Redis
+    });
+}
+// Em desenvolvimento, `sessionStore` será undefined, e `express-session` usará o MemoryStore padrão.
+
 // Configurar o middleware de sessão (Isto deve vir ANTES das suas rotas)
 // Garante que a aplicação irá gerir cookies e sessões de utilizador.
 app.use(session({
+    store: sessionStore,
     secret: SESSION_SECRET, // A validação acima garante que esta variável existe.
     resave: false,
     saveUninitialized: false, // Alterado para false: boa prática para sessões de login.
